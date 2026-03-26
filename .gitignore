@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+*.pyo
+output/*.scr
+output/*.dxf
+.env
+*.log

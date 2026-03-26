@@ -1,188 +1,83 @@
-"""
-utils/scr_generator.py
-AutoCAD SCR (script) file generator for SurveyCAD.
+"""SCR (AutoCAD script) generator for SurveyCAD."""
 
-Builds a plain-text SCR file that AutoCAD can execute via its ``SCRIPT``
-command.  The file uses Windows CRLF line endings and is written in binary
-mode to avoid Python's universal-newline translation on Windows.  All
-geometry helpers (``clean_code``, ``compute_placements``, ``label_positions``,
-``DIR_VECTORS``) are imported from :mod:`utils.geometry` to eliminate
-duplication with :mod:`utils.dxf_generator`.
-"""
-
-import os
-import logging
-from utils.geometry import clean_code, DIR_VECTORS, compute_placements, label_positions
+import io, logging
+from utils.geometry import clean_code, label_positions
 
 logger = logging.getLogger(__name__)
 
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-def _coord(easting: float, northing: float) -> str:
-    """Format coordinate string for AutoCAD commands."""
-    return f"{easting:.4f},{northing:.4f}"
+_C = lambda e, n: f"{e:.4f},{n:.4f}"
+_S = lambda v: str(v).replace('\r', ' ').replace('\n', ' ').strip()
 
 
-# ---------------------------------------------------------------------------
-# Generator
-# ---------------------------------------------------------------------------
+def _set_layer(lines, name):
+    lines += ["_-LAYER", "S", name, ""]
 
-def generate_scr(
-    rows: list[dict],
-    output_path: str,
-    text_height: float = 1.0,
-    offset: bool = True,
-    polyline_codes: list[str] | None = None,
-) -> None:
-    """
-    Generate an AutoCAD SCR script file from parsed survey rows.
 
-    Parameters
-    ----------
-    rows : list[dict]
-        Parsed survey data.  Each dict must contain ``easting``,
-        ``northing``, and ``sr_no``; optionally ``elevation`` and
-        ``description``.
-    output_path : str
-        Destination file path (will be created / overwritten).
-    text_height : float
-        AutoCAD text height for all labels.
-    offset : bool
-        Enable the anti-overlap label offset algorithm.
-    polyline_codes : list[str] | None
-        Description codes for which polylines should be drawn.
-    """
-    if polyline_codes is None:
-        polyline_codes = []
+def _add_text(lines, pos, height, content):
+    lines += ["-TEXT", _C(pos[0], pos[1]), f"{height:.4f}", "0", _S(content)]
 
-    placements = compute_placements(rows, text_height, offset)
-    lines: list[str] = []
 
-    # 1. Layer Setup (NO COMMENTS AT TOP)
-    # _-LAYER ensures command line version in any localized AutoCAD
-    lines.append("_-LAYER")
-    lines.append("N")
-    lines.append("POINT,POINT_NUMBER,ELEVATION,DESCRIPTION")
-    lines.append("C")
-    lines.append("7")
-    lines.append("POINT")
-    lines.append("C")
-    lines.append("2")
-    lines.append("POINT_NUMBER")
-    lines.append("C")
-    lines.append("4")
-    lines.append("ELEVATION")
-    lines.append("C")
-    lines.append("1")
-    lines.append("DESCRIPTION")
-    lines.append("")  # End layer command
-    lines.append("PDMODE")
-    lines.append("35")
+def generate_scr_stream(rows, text_height=1.0, offset=True, polyline_codes=None):
+    """Generate an AutoCAD SCR script from parsed survey rows."""
+    polyline_codes = polyline_codes or []
+    L = []
 
-    # 2. Draw Points
-    lines.append("_-LAYER")
-    lines.append("S")
-    lines.append("POINT")
-    lines.append("")
-    for row in rows:
-        lines.append("POINT")
-        lines.append(_coord(float(row["easting"]), float(row["northing"])))
+    # 1. Layer setup — Annotation Standards v1.0
+    L += ["_-LAYER", "N", "MS POINT,POINT_NUMBER,ELEVATION,DESCRIPTION",
+          "C", "7", "MS POINT",
+          "C", "130", "POINT_NUMBER",
+          "C", "2", "ELEVATION",
+          "C", "130", "DESCRIPTION", ""]
 
-    # 3. Draw Sr_No Text
-    lines.append("_-LAYER")
-    lines.append("S")
-    lines.append("POINT_NUMBER")
-    lines.append("")
-    for i, row in enumerate(rows):
-        sr_no = str(row.get("sr_no", "")).strip()
-        e, n = float(row["easting"]), float(row["northing"])
-        d, m = placements[i]
+    # Point shape: Plus (+) = PDMODE 2, size = 0.5 × text_height
+    L += ["PDMODE", "2", "PDSIZE", f"{text_height * 0.5:.4f}"]
 
-        pos_sr, pos_desc, pos_elev = label_positions(e, n, text_height, d, m, offset)
+    # 2. Points
+    _set_layer(L, "MS POINT")
+    for r in rows:
+        L += ["POINT", _C(float(r["easting"]), float(r["northing"]))]
 
-        lines.append("-TEXT")
-        lines.append(_coord(pos_sr[0], pos_sr[1]))
-        lines.append(f"{text_height:.4f}")
-        lines.append("0")  # Rotation
-        lines.append(sr_no)
+    # 3. Point numbers
+    _set_layer(L, "POINT_NUMBER")
+    for r in rows:
+        e, n = float(r["easting"]), float(r["northing"])
+        sr, _, _ = label_positions(e, n, text_height)
+        _add_text(L, sr, text_height, r.get("sr_no", ""))
 
-    # 4. Draw Description Text
-    lines.append("_-LAYER")
-    lines.append("S")
-    lines.append("DESCRIPTION")
-    lines.append("")
-    for i, row in enumerate(rows):
-        desc = row.get("description")
+    # 4. Descriptions
+    _set_layer(L, "DESCRIPTION")
+    for r in rows:
+        desc = r.get("description")
         if not desc or not str(desc).strip():
             continue
-        e, n = float(row["easting"]), float(row["northing"])
-        d, m = placements[i]
+        e, n = float(r["easting"]), float(r["northing"])
+        _, dp, _ = label_positions(e, n, text_height)
+        _add_text(L, dp, text_height, desc)
 
-        pos_sr, pos_desc, pos_elev = label_positions(e, n, text_height, d, m, offset)
-
-        lines.append("-TEXT")
-        lines.append(_coord(pos_desc[0], pos_desc[1]))
-        lines.append(f"{text_height:.4f}")
-        lines.append("0")
-        lines.append(str(desc).strip())
-
-    # 5. Draw Elevation Text
-    lines.append("_-LAYER")
-    lines.append("S")
-    lines.append("ELEVATION")
-    lines.append("")
-    for i, row in enumerate(rows):
-        elev = row.get("elevation")
+    # 5. Elevations
+    _set_layer(L, "ELEVATION")
+    for r in rows:
+        elev = r.get("elevation")
         if elev is None:
             continue
-        e, n = float(row["easting"]), float(row["northing"])
-        d, m = placements[i]
+        e, n = float(r["easting"]), float(r["northing"])
+        _, _, ep = label_positions(e, n, text_height)
+        _add_text(L, ep, text_height, f"{float(elev):.3f}")
 
-        pos_sr, pos_desc, pos_elev = label_positions(e, n, text_height, d, m, offset)
-
-        lines.append("-TEXT")
-        lines.append(_coord(pos_elev[0], pos_elev[1]))
-        lines.append(f"{text_height:.4f}")
-        lines.append("0")
-        lines.append(f"{float(elev):.3f}")
-
-    # 6. Draw Polylines
+    # 6. Polylines
     for code in polyline_codes:
-        code_str = str(code).strip()
-        matched = [r for r in rows if str(r.get("description", "")).strip() == code_str]
-        if len(matched) < 2:
+        cs = _S(str(code))
+        pts = [r for r in rows if str(r.get("description", "")).strip() == cs]
+        if len(pts) < 2:
             continue
+        ln = f"PLINE_{clean_code(cs)}"
+        L += ["_-LAYER", "N", ln, "C", "3", ln, "S", ln, ""]
+        L.append("PLINE")
+        for p in pts:
+            L.append(_C(float(p["easting"]), float(p["northing"])))
+        L.append("")
 
-        layer_name = f"PLINE_{clean_code(code_str)}"
-        lines.append("_-LAYER")
-        lines.append("N")
-        lines.append(layer_name)
-        lines.append("C")
-        lines.append("3")  # Green
-        lines.append(layer_name)
-        lines.append("S")
-        lines.append(layer_name)
-        lines.append("")
+    # 7. Zoom extents
+    L += ["ZOOM", "E", ""]
 
-        lines.append("PLINE")
-        for r in matched:
-            lines.append(_coord(float(r["easting"]), float(r["northing"])))
-        lines.append("")  # End polyline
-
-    # 7. Zoom Extents
-    lines.append("ZOOM")
-    lines.append("E")
-    lines.append("")
-
-    # 8. Write file with explicit CRLF (\r\n). ASCII encoding avoids any BOM.
-    os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
-    content = "\r\n".join(lines) + "\r\n"
-
-    # Important: open in binary mode so Python doesn't translate \r\n to \r\r\n on Windows
-    with open(output_path, "wb") as f:
-        f.write(content.encode("ascii", "replace"))
-
-    logger.info("SCR file written correctly for AutoCAD Windows: %s", output_path)
+    return io.BytesIO(("\r\n".join(L) + "\r\n").encode("utf-8"))

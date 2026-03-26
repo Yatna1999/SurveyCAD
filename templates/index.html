@@ -5,7 +5,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SurveyCAD – Total Station to AutoCAD</title>
   <meta name="description" content="SurveyCAD Converter — Total Station CSV to AutoCAD SCR and DXF. Made by Yatna Patel." />
-  <link rel="stylesheet" href="/static/style.css?v=5" />
+  <link rel="stylesheet" href="/static/style.css?v=8" />
+  <style>
+    /* Inline: download grid layout */
+    .format-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 22px;
+    }
+    @media (max-width: 800px) {
+      .format-grid { grid-template-columns: 1fr; }
+    }
+  </style>
 </head>
 <body>
 
@@ -39,6 +51,8 @@
         <div class="step" id="step-2"><span class="step-num">2</span> Configure</div>
         <div class="step-connector" aria-hidden="true"></div>
         <div class="step" id="step-3"><span class="step-num">3</span> Generate</div>
+        <div class="step-connector" aria-hidden="true"></div>
+        <div class="step" id="step-4"><span class="step-num">4</span> Download</div>
       </nav>
     </div>
 
@@ -87,45 +101,8 @@
   <!-- ── Step 2: Configure ─────────────────────────────────── -->
   <section>
     <div class="card">
-      <div class="section-title">Step 2 — Choose Output Format</div>
-      <div class="mode-grid">
-        <div class="mode-card" id="mode-scr" role="button" tabindex="0">
-          <span class="check">✓</span>
-          <span class="mode-icon">
-            <svg width="52" height="52" viewBox="0 0 52 52" fill="none" aria-hidden="true">
-              <rect x="6" y="4" width="40" height="44" rx="5" stroke="#FF6B00" stroke-width="2"/>
-              <path d="M14 16h8M14 22h24M14 28h20M14 34h14" stroke="#FFB347" stroke-width="1.8" stroke-linecap="round"/>
-              <rect x="28" y="28" width="18" height="18" rx="3" fill="#060610" stroke="#FF6B00" stroke-width="1.5"/>
-              <path d="M32 37l3-3-3-3M36 38h7" stroke="#FF8C38" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </span>
-          <h3>SCR Script</h3>
-          <p>Run via AutoCAD <code>SCRIPT</code> command.<br>Draws points, labels, and polylines.</p>
-        </div>
-        <div class="mode-card" id="mode-dxf" role="button" tabindex="0">
-          <span class="check">✓</span>
-          <span class="mode-icon">
-            <svg width="52" height="52" viewBox="0 0 52 52" fill="none" aria-hidden="true">
-              <path d="M8 44V8l10-4h16l10 8v32l-10 4H18L8 44z" stroke="#FF6B00" stroke-width="2"/>
-              <path d="M14 20h8v12h-8zM30 20l8 6-8 6" stroke="#FFB347" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-              <circle cx="18" cy="14" r="2" fill="#FF8C38"/>
-              <circle cx="34" cy="38" r="2" fill="#FF8C38"/>
-              <line x1="18" y1="14" x2="34" y2="38" stroke="#FF8C38" stroke-width="0.8" stroke-dasharray="3 2"/>
-            </svg>
-          </span>
-          <h3>DXF File</h3>
-          <p>Open directly in AutoCAD or any CAD viewer.<br>Full layer support, R2018 format.</p>
-        </div>
-      </div>
-
-      <button class="settings-toggle" id="settings-toggle">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-          <polyline points="6 9 12 15 18 9"/>
-        </svg>
-        <span>Show Settings</span>
-      </button>
-
-      <div class="settings-panel" id="settings-panel">
+      <div class="section-title">Step 2 — Configure Settings</div>
+      <div class="settings-panel open" id="settings-panel">
         <div class="settings-grid">
           <div class="setting-group">
             <label for="slider-height">Text Height</label>
@@ -145,19 +122,7 @@
               <span class="select-arrow" aria-hidden="true">▼</span>
             </div>
           </div>
-          <div class="setting-group">
-            <label>Text Offset</label>
-            <div class="toggle-row">
-              <div class="toggle-label-text">
-                Offset labels
-                <small>Prevents overlap with point marker. Auto-rotates when points are close.</small>
-              </div>
-              <label class="toggle">
-                <input type="checkbox" id="toggle-offset" checked />
-                <span class="toggle-slider"></span>
-              </label>
-            </div>
-          </div>
+
         </div>
         <div class="polyline-section">
           <h4>Connect Polylines for Codes</h4>
@@ -167,23 +132,72 @@
     </div>
   </section>
 
-  <!-- ── Step 3: Generate ───────────────────────────────────── -->
+  <!-- ── Step 3: Generate & Download ────────────────────────── -->
   <section>
     <div class="card">
-      <div class="section-title">Step 3 — Generate CAD Files</div>
-      <button id="btn-generate" disabled>GENERATE CAD FILES</button>
+      <div class="section-title">Step 3 — Generate &amp; Download</div>
+      
+      <div class="format-grid">
+        <!-- SCR Card -->
+        <div class="format-card" id="format-card-scr">
+          <div class="format-icon">
+            <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="6" y="4" width="28" height="36" rx="3" stroke="#FF6B00" stroke-width="2" fill="none"/>
+              <path d="M12 14h16M12 20h16M12 26h10" stroke="#FF6B00" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/>
+              <path d="M30 28l8-8v20H30V28z" fill="rgba(255,107,0,0.15)" stroke="#FF6B00" stroke-width="1.5"/>
+              <path d="M30 28h8" stroke="#FF6B00" stroke-width="1.5"/>
+              <path d="M33 34l2 2 3-4" stroke="#FF6B00" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          <h3 class="format-title">SCR Script</h3>
+          <p class="format-desc">Run via AutoCAD SCRIPT command.<br>Draws points, labels, and polylines.</p>
+          <button class="btn-format-download" id="btn-generate-scr" disabled>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 3v13M7 12l5 5 5-5"/><path d="M3 21h18"/></svg>
+            GENERATE SCR
+          </button>
+        </div>
+
+        <!-- DXF Card -->
+        <div class="format-card" id="format-card-dxf">
+          <div class="format-icon">
+            <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="8" y="4" width="32" height="40" rx="3" stroke="#FF6B00" stroke-width="2" fill="none"/>
+              <circle cx="20" cy="20" r="6" stroke="#FF6B00" stroke-width="1.5" fill="none" opacity="0.7"/>
+              <path d="M28 14l8 8-8 8" stroke="#FF6B00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M14 36h20" stroke="#FF6B00" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+            </svg>
+          </div>
+          <h3 class="format-title">DXF File</h3>
+          <p class="format-desc">Open in AutoCAD or any CAD viewer.<br>Full layer support, R2018 format.</p>
+          <button class="btn-format-download" id="btn-generate-dxf" disabled>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 3v13M7 12l5 5 5-5"/><path d="M3 21h18"/></svg>
+            GENERATE DXF
+          </button>
+        </div>
+
+        <!-- DWG Card -->
+        <div class="format-card" id="format-card-dwg">
+          <div class="format-icon">
+            <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="6" y="6" width="36" height="36" rx="4" stroke="#FF6B00" stroke-width="2" fill="none"/>
+              <path d="M14 30l6-12 4 8 4-4 6 8" stroke="#FF6B00" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <circle cx="32" cy="16" r="4" stroke="#FF6B00" stroke-width="1.5" fill="rgba(255,107,0,0.2)"/>
+              <path d="M10 10l28 28M38 10l-28 28" stroke="#FF6B00" stroke-width="0.5" opacity="0.2"/>
+            </svg>
+          </div>
+          <h3 class="format-title">DWG File</h3>
+          <p class="format-desc">Native AutoCAD drawing format.<br>Requires ODA File Converter.</p>
+          <button class="btn-format-download" id="btn-generate-dwg" disabled>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 3v13M7 12l5 5 5-5"/><path d="M3 21h18"/></svg>
+            GENERATE DWG
+          </button>
+        </div>
+      </div>
+
       <div class="generate-log-wrapper">
         <div class="section-title">Progress Log</div>
         <div id="log-box" role="log" aria-live="polite"></div>
       </div>
-    </div>
-  </section>
-
-  <!-- ── Step 4: Download ───────────────────────────────────── -->
-  <section id="download-section">
-    <div class="card">
-      <div class="section-title">Step 4 — Download Files</div>
-      <div class="download-grid" id="download-grid"></div>
     </div>
   </section>
 
@@ -201,19 +215,19 @@
         <ol>
           <li>Open AutoCAD (new or existing drawing).</li>
           <li>Go to <strong>Manage</strong> tab → <strong>Run Script</strong>, or type <code>SCRIPT</code> in the command bar.</li>
-          <li>Browse to your <code>output</code> folder and select <code>survey_output.scr</code>.</li>
+          <li>Browse to your <code>Downloads</code> folder and select <code>survey_output.scr</code>.</li>
           <li>AutoCAD runs all commands automatically — layers, points, labels, polylines.</li>
           <li>Type <code>ZOOM E</code> to see all points (the script does this automatically).</li>
           <li>Use <strong>Layer Properties Manager</strong> (<code>LAYER</code>) to toggle:
             <ul>
-              <li><strong>POINT</strong> – cross markers (white)</li>
-              <li><strong>POINT_NUMBER</strong> – Sr No labels (yellow)</li>
-              <li><strong>DESCRIPTION</strong> – description codes (red)</li>
-              <li><strong>ELEVATION</strong> – height values (cyan)</li>
+              <li><strong>MS POINT</strong> – plus (+) markers (white)</li>
+              <li><strong>POINT_NUMBER</strong> – Sr No labels (blue)</li>
+              <li><strong>DESCRIPTION</strong> – description codes (blue)</li>
+              <li><strong>ELEVATION</strong> – height values (yellow)</li>
               <li><strong>PLINE_*</strong> – polylines (green)</li>
             </ul>
           </li>
-          <li>Points appear as cross-with-circle (PDMODE 35). Change via <code>PDMODE</code> and <code>PDSIZE</code>.</li>
+          <li>Points appear as plus (+) markers (PDMODE 2). Change via <code>PDMODE</code> and <code>PDSIZE</code>.</li>
         </ol>
       </div>
       <div class="instr-block">
@@ -225,6 +239,16 @@
           <li>Type <code>ZOOM E</code> to fit all points in view.</li>
           <li>Use <strong>Layer Properties Manager</strong> to toggle layers.</li>
           <li>Set drawing units: <code>UNITS</code> → match your chosen unit.</li>
+        </ol>
+      </div>
+      <div class="instr-block">
+        <h4>Using the DWG File</h4>
+        <ol>
+          <li>Open AutoCAD.</li>
+          <li><strong>File</strong> → <strong>Open</strong> → select <code>survey_output.dwg</code>.</li>
+          <li>DWG is the native AutoCAD format (R2018), so you don't need any imports or scripts.</li>
+          <li>Drawing opens immediately with all points, labels with the proper font (<code>SURVEY</code> simplex.shx), and layers correctly applied.</li>
+          <li>Type <code>ZOOM E</code> to see your entire site map.</li>
         </ol>
       </div>
       <div class="instr-block">
