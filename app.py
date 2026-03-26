@@ -34,7 +34,7 @@ app = Flask(
     template_folder=TEMPLATE_DIR,
     static_folder=STATIC_DIR,
 )
-CORS(app)  # Allow all origins for deployment
+CORS(app, origins=["http://127.0.0.1:5000", "http://localhost:5000"])
 app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024  # 10 MB max upload limit
 
 # Create output directory on startup
